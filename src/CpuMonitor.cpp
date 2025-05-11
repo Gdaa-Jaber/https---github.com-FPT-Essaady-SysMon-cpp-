@@ -4,7 +4,7 @@
 #include <iostream>
 
 CpuMonitor::CpuMonitor() {
-    // Read /proc/stat to get number of CPUs
+    // Lire /proc/stat pour obtenir le nombre de CPUs
     std::ifstream statFile("/proc/stat");
     std::string line;
     numCPUs = 0;
@@ -14,29 +14,22 @@ CpuMonitor::CpuMonitor() {
             numCPUs++;
         }
     }
-    numCPUs--; // Subtract 1 for the overall CPU line
+    numCPUs--; // Soustraire 1 pour la ligne CPU globale
 
-    // Initialize vectors
+    // Initialiser les vecteurs
     lastTotalUser.resize(numCPUs);
     lastTotalUserLow.resize(numCPUs);
     lastTotalSys.resize(numCPUs);
     lastTotalIdle.resize(numCPUs);
 
-    // Initialize with first reading
-    for (int i = 0; i < numCPUs; i++) {
-        std::vector<unsigned long long> stats;
-        readCPUStats(stats);
-        lastTotalUser[i] = stats[0];
-        lastTotalUserLow[i] = stats[1];
-        lastTotalSys[i] = stats[2];
-        lastTotalIdle[i] = stats[3];
-    }
+    // Initialiser avec la première lecture
+    updateCPUStats();
 }
 
 void CpuMonitor::readCPUStats(std::vector<unsigned long long>& stats) {
     std::ifstream statFile("/proc/stat");
     std::string line;
-    std::getline(statFile, line); // Skip overall CPU line
+    std::getline(statFile, line); // Ignorer la ligne CPU globale
     
     for (int i = 0; i < numCPUs; i++) {
         std::getline(statFile, line);
@@ -46,15 +39,27 @@ void CpuMonitor::readCPUStats(std::vector<unsigned long long>& stats) {
         
         iss >> cpu >> user >> nice >> system >> idle >> iowait >> irq >> softirq;
         
-        if (i == 0) { // Only store stats for the first CPU
+        if (i == 0) { // Ne stocker les stats que pour le premier CPU
             stats = {user, nice, system, idle};
         }
     }
 }
 
-double CpuMonitor::calculateCPUUsage(int cpuIndex) {
+void CpuMonitor::updateCPUStats() {
     std::vector<unsigned long long> stats;
     readCPUStats(stats);
+    
+    for (int i = 0; i < numCPUs; i++) {
+        lastTotalUser[i] = stats[0];
+        lastTotalUserLow[i] = stats[1];
+        lastTotalSys[i] = stats[2];
+        lastTotalIdle[i] = stats[3];
+    }
+}
+
+double CpuMonitor::calculateCPUUsage(int cpuIndex) const {
+    std::vector<unsigned long long> stats;
+    const_cast<CpuMonitor*>(this)->readCPUStats(stats);
     
     unsigned long long totalUser = stats[0] - lastTotalUser[cpuIndex];
     unsigned long long totalUserLow = stats[1] - lastTotalUserLow[cpuIndex];
@@ -63,18 +68,12 @@ double CpuMonitor::calculateCPUUsage(int cpuIndex) {
     
     unsigned long long total = totalUser + totalUserLow + totalSys + totalIdle;
     
-    // Update last values
-    lastTotalUser[cpuIndex] = stats[0];
-    lastTotalUserLow[cpuIndex] = stats[1];
-    lastTotalSys[cpuIndex] = stats[2];
-    lastTotalIdle[cpuIndex] = stats[3];
-    
     return total > 0 ? (total - totalIdle) * 100.0 / total : 0.0;
 }
 
-double CpuMonitor::getCPUUsage(int cpuIndex) {
+double CpuMonitor::getCPUUsage(int cpuIndex) const {
     if (cpuIndex == -1) {
-        // Calculate overall CPU usage
+        // Calculer l'utilisation globale du CPU
         double totalUsage = 0.0;
         for (int i = 0; i < numCPUs; i++) {
             totalUsage += calculateCPUUsage(i);
@@ -86,5 +85,5 @@ double CpuMonitor::getCPUUsage(int cpuIndex) {
         return calculateCPUUsage(cpuIndex);
     }
     
-    return -1.0; // Invalid CPU index
+    return -1.0; // Index CPU invalide
 }

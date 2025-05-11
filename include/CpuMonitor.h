@@ -14,11 +14,12 @@ private:
     int numCPUs;
 
     void readCPUStats(std::vector<unsigned long long>& stats);
-    double calculateCPUUsage(int cpuIndex);
+    double calculateCPUUsage(int cpuIndex) const;
 
 public:
     CpuMonitor();
-    double getCPUUsage(int cpuIndex = -1); // -1 for overall CPU usage
+    void updateCPUStats();
+    double getCPUUsage(int cpuIndex = -1) const; // -1 pour l'utilisation globale du CPU
     int getNumCPUs() const { return numCPUs; }
 };
 
